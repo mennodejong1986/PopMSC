@@ -1,0 +1,447 @@
+# source("E:/PhD/General/Rawdata2snps/SUPERTREE_twisst_plotinR.txt")
+# depends on plotpopmatrix function of SambaR, so load SambaR as well:
+# source("E:/PhD/General/SAMBAR/SAMBAR_v1.08.txt")
+
+# Three commands:
+examplerun<-function()
+	{
+	setwd("C:/Users/Menno_de_Jong/Documents/SNPdatasets/brownbear135_haploblock_mtdnaclades")
+	source("E:/PhD/General/SAMBAR/SAMBAR_v1.08.txt")
+	getpackages()
+	mypopnames		<- c("ABCa","ABCbc","ABCcoast1","ABCcoast2","Alaska","Aleutian","Amur","Baltic","Black","CentreRus","CentreRus2","Europe1a","Europe1b","Europe3a","Himalaya","Hokkaido3a","Hokkaido3b","Hokkaido4","HudsonBay","Kamtchatka","Kodiak","Magadan","MiddleEast","MidScand","NorthScand","polar","Sakhalin","SouthScand","Ural","Westcoast","Yakutia") 
+	mycolours		<- c("mediumblue","blue4","darkorchid2","slateblue3","steelblue3","deepskyblue","darkgreen","gold3","black","greenyellow","yellowgreen","darkred","darkred","darkred","grey25","darkcyan","darkcyan","darkcyan","darkorchid4","cyan2","lightskyblue3","aquamarine2","grey70","indianred1","orange","cornsilk3","lightseagreen","orangered3","yellow2","mediumpurple2","limegreen")
+	mypoporder		<- c("MiddleEast","Himalaya","Europe1a","Europe1b","Europe3a","SouthScand","MidScand","NorthScand","Baltic","Ural","CentreRus2","CentreRus","Yakutia","Amur","Hokkaido3a","Hokkaido3b","Hokkaido4","Sakhalin","Magadan","Kamtchatka","Aleutian","Kodiak","Alaska","ABCa","ABCbc","ABCcoast2","Westcoast","ABCcoast1","HudsonBay","polar","Black") 
+	importdata(inputprefix="myhaploblock_phased",samplefile="popfile135_haploid_mtdnaclades.txt",sumstatsfile=FALSE,depthfile=FALSE,legend_cex=2,colourvector=mycolours,pop_order=mypoporder)
+	filterdata(min_spacing=0,do_distplot=FALSE,dohefilter=FALSE)
+	#
+	my_wd	<- "C:/Users/Menno_de_Jong/Documents/SNPdatasets/brownbear135_haploblock_mtdnaclades/Twisst"
+	gettwisst_data(mywd=my_wd)
+	twisst_zscores(mywd=my_wd)
+	twisst_heatmap()
+	twisst_barplot(p1="ABCbc",p2="Europe1b",p3="polar",p4="Black")
+	twisst_barplot(p1="Hokkaido3a",p2="Hokkaido3b",p3="Amur",p4="Black",ylabel=NULL)
+	twisst_barplot(p1="Hokkaido3a",p2="Hokkaido4",p3="Westcoast",p4="Black",ylabel=NULL)
+	twisst_barplot(p1="Europe1b",p2="Ural",p3="Himalaya",p4="MiddleEast",ylabel=NULL)
+	twisst_barplot(p1="Europe1a",p2="Europe1b",p3="SouthScand",p4="NorthScand",ylabel=NULL)
+	}
+
+gettwisst_data<-function(silent=TRUE,mywd="C:/Users/Menno_de_Jong/Documents/SNPdatasets/brownbear135_haploblock_mtdnaclades/Twisst")
+	{
+	setwd(mywd)
+	cat("Searching for file names ending on 'quartetscores.txt' in the directory:",sep="\n")
+	cat(getwd(),sep="\n")
+	filenames 	<- list.files(pattern = ".*.quartetscores.txt")
+	if(length(filenames)==0)
+		{
+		return(cat("ERROR: the directory does not contain files ending on 'quartetscores.txt'.",sep="\n"))
+		}
+	cat("Reading data...",sep="\n")
+	qlist 		<- lapply(filenames,function(x)read.table(x,header=TRUE)) 
+	#
+	cat("Aggregating quartet frequencies...",sep="\n")
+	x			<- qlist[[1]]
+	for(k in c(2:length(qlist)))
+		{
+		x$sum1	<- x$sum1+qlist[[k]]$sum1
+		x$sum2	<- x$sum2+qlist[[k]]$sum2
+		x$sum3	<- x$sum3+qlist[[k]]$sum3	
+		}
+	cat("Adding population names...",sep="\n")
+	mylist	<- strsplit(x$quartet,",")
+	x$pop1	<- NA
+	x$pop2	<- NA
+	x$pop3	<- NA
+	x$pop4	<- NA
+	for(k in c(1:nrow(x)))
+		{
+		x$pop1[k]	<- mylist[[k]][1]
+		x$pop2[k]	<- mylist[[k]][2]
+		x$pop3[k]	<- mylist[[k]][3]
+		x$pop4[k]	<- mylist[[k]][4]
+		}
+	# find species tree triplet:
+	cat("Reading population tree...",sep="\n")
+	inputnewickfile	<- "C:/Users/Menno_de_Jong/Documents/SNPdatasets/brownbear135_20Kthin/Poptree.neiD.newick.txt"
+	mypoptree		<- ape::read.tree(inputnewickfile)
+	mypoptree		<- root(mypoptree,"Black",resolve.root=TRUE)
+	x$RF1			<- NA
+	x$RF2			<- NA
+	x$RF3			<- NA
+	x$t1			<- NA
+	cat("Determining species quartet and alternative quartets...",sep="\n")
+	sumsdf			<- x[,c("sum1","sum2","sum3")]
+	for(k in c(1:nrow(x)))
+		{
+		myquartet		<- as.vector(unlist(x[k,c("pop1","pop2","pop3","pop4")]))
+		subtree			<- keep.tip(phy=mypoptree,tip=myquartet)
+		mynewick1		<- paste("((",myquartet[1],",",myquartet[2],"),(",myquartet[3],",",myquartet[4],"));",sep="")
+		mytree1			<- read.tree(text=mynewick1)
+		mynewick2		<- paste("((",myquartet[1],",",myquartet[3],"),(",myquartet[2],",",myquartet[4],"));",sep="")
+		mytree2			<- read.tree(text=mynewick2)
+		mynewick3		<- paste("((",myquartet[1],",",myquartet[4],"),(",myquartet[2],",",myquartet[3],"));",sep="")
+		mytree3			<- read.tree(text=mynewick3)
+		rfvec			<- vector()
+		rfvec[1]		<- RF.dist(tree1=subtree,tree2=mytree1,check.labels=TRUE,rooted=TRUE)
+		rfvec[2]		<- RF.dist(tree1=subtree,tree2=mytree2,check.labels=TRUE,rooted=TRUE)
+		rfvec[3]		<- RF.dist(tree1=subtree,tree2=mytree3,check.labels=TRUE,rooted=TRUE)
+		x$RF1[k]		<- rfvec[1]
+		x$RF2[k]		<- rfvec[2]
+		x$RF3[k]		<- rfvec[3]
+		x$t1[k]			<- which(rfvec==min(rfvec))
+		myvec2			<- which(rfvec!=min(rfvec))
+		mysums			<- as.vector(unlist(sumsdf[k,myvec2]))
+		if(mysums[1]>mysums[2])
+			{
+			x$t2[k]		<- myvec2[1]
+			x$t3[k]		<- myvec2[2]
+			}else{
+			x$t2[k]		<- myvec2[2]
+			x$t3[k]		<- myvec2[1]
+			}
+		}
+	mydf		<<-	x
+	# calculate D-stats:
+	cat("Calculating ABBA-BABA statistics...",sep="\n")
+	if(!silent){cat("bbaa..",sep="\n")}
+	x$bbaa			<- ifelse(x$t1==1,x$sum1,ifelse(x$t1==2,x$sum2,x$sum3))
+	if(!silent){cat("abba..",sep="\n")}
+	x$abba			<- ifelse(x$t2==1,x$sum1,ifelse(x$t2==2,x$sum2,x$sum3))
+	if(!silent){cat("baba..",sep="\n")}
+	x$baba			<- ifelse(x$t3==1,x$sum1,ifelse(x$t3==2,x$sum2,x$sum3))
+	if(!silent){cat("Admixture proportion..",sep="\n")}
+	x$prop			<- (x$abba-x$baba)/(x$bbaa+x$abba+x$baba)				# rough estimate (underestimate, because does not account for ILS in P3).
+	if(!silent){cat("d..",sep="\n")}
+	x$d				<- (x$abba-x$baba)/(x$abba+x$baba)
+	#
+	# Define ingroups and introgressors:
+	cat("Renaming quartets..",sep="\n")
+	x$t_species		<- ifelse(x$t1==1,paste(x$pop1,x$pop2,x$pop3,x$pop4,sep="_"),ifelse(x$t1==2,paste(x$pop1,x$pop3,x$pop2,x$pop4,sep="_"),paste(x$pop1,x$pop4,x$pop2,x$pop3,sep="_")))
+	x$t_gf			<- ifelse(x$t2==1,paste(x$pop1,x$pop2,x$pop3,x$pop4,sep="_"),ifelse(x$t2==2,paste(x$pop1,x$pop3,x$pop2,x$pop4,sep="_"),paste(x$pop1,x$pop4,x$pop2,x$pop3,sep="_")))
+	x$t_third		<- ifelse(x$t3==1,paste(x$pop1,x$pop2,x$pop3,x$pop4,sep="_"),ifelse(x$t3==2,paste(x$pop1,x$pop3,x$pop2,x$pop4,sep="_"),paste(x$pop1,x$pop4,x$pop2,x$pop3,sep="_")))
+	x$t_species2	<- ifelse(x$t1==1,"1,2|3,4",ifelse(x$t1==2,"1,3|2,4","1,4|2,3"))
+	x$t_gf2			<- ifelse(x$t2==1,"1,2|3,4",ifelse(x$t2==2,"1,3|2,4","1,4|2,3"))
+	x$t_third2		<- ifelse(x$t3==1,"1,2|3,4",ifelse(x$t3==2,"1,3|2,4","1,4|2,3"))
+	cat("Defining ingroups of main topology...",sep="\n")
+	x$ingroup1a		<- NA
+	x$ingroup1b		<- NA
+	x$ingroup2a		<- NA
+	x$ingroup2b		<- NA
+	speciestreelist	<- strsplit(x$t_species,"_")		
+	for(k in c(1:nrow(x)))
+		{
+		x$ingroup1a[k]	<- speciestreelist[[k]][1]
+		x$ingroup1b[k]	<- speciestreelist[[k]][2]
+		x$ingroup2a[k]	<- speciestreelist[[k]][3]
+		x$ingroup2b[k]	<- speciestreelist[[k]][4]
+		}
+	cat("Defining ingroups of alternative topology...",sep="\n")
+	x$a1			<- NA
+	x$a2			<- NA
+	x$b1			<- NA
+	x$b2			<- NA
+	gflist			<- strsplit(x$t_gf,"_")
+	for(k in c(1:nrow(x)))
+		{
+		x$a1[k]		<- gflist[[k]][1]
+		x$a2[k]		<- gflist[[k]][2]
+		x$b1[k]		<- gflist[[k]][3]
+		x$b2[k]		<- gflist[[k]][4]
+		}
+	cat("Defining ingroups of third topology...",sep="\n")
+	x$c1			<- NA
+	x$c2			<- NA
+	x$d1			<- NA
+	x$d2			<- NA
+	thirdlist		<- strsplit(x$t_third,"_")
+	for(k in c(1:nrow(x)))
+		{
+		x$c1[k]		<- thirdlist[[k]][1]
+		x$c2[k]		<- thirdlist[[k]][2]
+		x$d1[k]		<- thirdlist[[k]][3]
+		x$d2[k]		<- thirdlist[[k]][4]
+		}
+	cat("Calculating frequencies...",sep="\n")
+	x$t1freq		<- x$bbaa/(x$bbaa+x$abba+x$baba)
+	x$t2freq		<- x$abba/(x$bbaa+x$abba+x$baba)
+	x$t3freq		<- x$baba/(x$bbaa+x$abba+x$baba)
+	twisstdf		<<- x
+	cat("All data stored in dataframe 'twisstdf'.",sep="\n")
+	cat("Next run the 'twisst_zscores' function to calculate significance levels.",sep="\n")
+	cat("Afterwards, you can plot the results with the 'twisst_heatmap' function.",sep="\n")
+	}
+	
+
+twisst_zscores<-function(mywd="C:/Users/Menno_de_Jong/Documents/SNPdatasets/brownbear135_haploblock_mtdnaclades/Twisst")
+	{
+	setwd(mywd)
+	cat("Searching for file names ending on 'quartetscores.txt' in the directory:",sep="\n")
+	cat(getwd(),sep="\n")
+	filenames 	<- list.files(pattern = ".*.quartetscores.txt")
+	if(length(filenames)==0)
+		{
+		return(cat("ERROR: the directory does not contain files ending on 'quartetscores.txt'.",sep="\n"))
+		}
+	qlist 		<- lapply(filenames,function(x)read.table(x,header=TRUE)) 
+	#
+	sddf		<<- matrix(NA,ncol=length(qlist),nrow=nrow(qlist[[1]])) 
+	nscaffolds	<- length(qlist)
+	for(scafnr in c(1:nscaffolds))
+		{
+		cat(paste("Scaffold ",scafnr," out of ",nscaffolds,".",sep=""),sep="\n") 
+		x			<- qlist[[scafnr]]
+		mylist	<- strsplit(x$quartet,",")
+		x$pop1	<- NA
+		x$pop2	<- NA
+		x$pop3	<- NA
+		x$pop4	<- NA
+		for(k in c(1:nrow(x)))
+			{
+			x$pop1[k]	<- mylist[[k]][1]
+			x$pop2[k]	<- mylist[[k]][2]
+			x$pop3[k]	<- mylist[[k]][3]
+			x$pop4[k]	<- mylist[[k]][4]
+			}
+		# find species tree triplet:
+		sumsdf			<- x[,c("sum1","sum2","sum3")]
+		inputnewickfile	<- "C:/Users/Menno_de_Jong/Documents/SNPdatasets/brownbear135_20Kthin/Poptree.neiD.newick.txt"
+		mypoptree		<- ape::read.tree(inputnewickfile)
+		mypoptree		<- root(mypoptree,"Black",resolve.root=TRUE)
+		x$t1			<- twisstdf$t1
+		x$t2			<- twisstdf$t2
+		x$t3			<- twisstdf$t3
+		x$bbaa			<- ifelse(x$t1==1,x$sum1,ifelse(x$t1==2,x$sum2,x$sum3))
+		x$abba			<- ifelse(x$t2==1,x$sum1,ifelse(x$t2==2,x$sum2,x$sum3))
+		x$baba			<- ifelse(x$t3==1,x$sum1,ifelse(x$t3==2,x$sum2,x$sum3))
+		x$prop			<- (x$abba-x$baba)/(x$bbaa+x$abba+x$baba)		# rough estimate of admixture proportion (underestimate, because does not account for ILS in P3).
+		x$d				<- (x$abba-x$baba)/(x$abba+x$baba)
+		sddf[,scafnr]	<<- x$d
+		}
+	cat("Adding z-scores to twisstdf dataframe...",sep="\n")
+	twisstdf$sd			<<- apply(sddf,1,sd)
+	twisstdf$d_err		<<- twisstdf$sd/sqrt(nscaffolds)
+	twisstdf$Z			<<- twisstdf$d/twisstdf$d_err
+	cat("Done. Z-scores added to dataframe 'twisstdf'.",sep="\n")
+	cat("Next you can plot the results with the 'twisst_heatmap' function.",sep="\n")
+	}
+
+twisst_heatmap<-function(x=twisstdf,zvec=c(3,4,5,6),exporttype="pdf",plotprop=FALSE)
+	{
+	# POPULATION MATRIX:
+	mypops			<- unique(c(x$pop1,x$pop2,x$pop3,x$pop4))
+	npops			<- length(mypops)
+	pairdf			<<- data.frame("pop1"=rep(NA,npops*npops),"pop2"=rep(NA,npops*npops),"prop"=rep(NA,npops*npops))			
+	for(zscore in zvec)
+		{
+		cat(paste("Z-threshold: ",zscore,".",sep=""),sep="\n") 
+		mymat			<- matrix(NA,nrow=npops,ncol=npops)
+		colnames(mymat)	<- mypops
+		rownames(mymat)	<- mypops
+		mat1			<- mymat
+		mat2			<- mymat
+		mat3			<- mymat
+		y				<- x[x$Z>=zscore,]
+		for(i in c(1:npops))
+			{
+			mypop1	<- mypops[i]
+			for(j in c(1:npops))
+				{
+				mypop2			<- mypops[j]	
+				mynumerator		<- nrow(y[(y$a1==mypop1&y$a2==mypop2)|(y$a1==mypop2&y$a2==mypop1)|(y$b1==mypop1&y$b2==mypop2)|(y$b1==mypop2&y$b2==mypop1),])
+				n_second		<- nrow(x[(x$a1==mypop1&x$a2==mypop2)|(x$a1==mypop2&x$a2==mypop1)|(x$b1==mypop1&x$b2==mypop2)|(x$b1==mypop2&x$b2==mypop1),])
+				n_third			<- nrow(x[(x$c1==mypop1&x$c2==mypop2)|(x$c1==mypop2&x$c2==mypop1)|(x$d1==mypop1&x$d2==mypop2)|(x$d1==mypop2&x$d2==mypop1),])
+				n_ingroup1		<- nrow(x[(x$ingroup1a==mypop1&x$ingroup1b==mypop2)|(x$ingroup1a==mypop2&x$ingroup1b==mypop1)|(x$ingroup1a==mypop1&x$ingroup1b==mypop2)|(x$ingroup1a==mypop2&x$ingroup1b==mypop1),])
+				n_ingroup2		<- nrow(x[(x$ingroup2a==mypop1&x$ingroup2b==mypop2)|(x$ingroup2a==mypop2&x$ingroup2b==mypop1)|(x$ingroup2a==mypop1&x$ingroup2b==mypop2)|(x$ingroup2a==mypop2&x$ingroup2b==mypop1),])
+				mat1[i,j]		<- n_ingroup1+n_ingroup2
+				mat2[i,j]		<- n_second
+				mat3[i,j]		<- n_third
+				mydenominator	<- n_second+n_third
+				mymat[i,j]		<- ifelse(mydenominator==0,0,mynumerator/mydenominator)
+				pairdf[npops*(i-1)+j,]	<<- c(mypop1,mypop2,mymat[i,j])
+				}
+			}
+		#myplotlabel	<- paste("population pairs in q2, with t2 > t3  (Z > ",zscore,")",sep="")
+		myplotlabel		<- NULL
+		cat("Plotting...",sep="\n")
+		twisstmat	<<- mymat
+		plotpopmatrix(mymatrix=mymat,exportname=paste("Popmatrix_Z",zscore,sep="_"),export=exporttype,addlegend=TRUE,legendtitle="ingroup-score:",myBreaks=c(0,0.1,0.2,0.3,0.4,0.5,1),plotlabel=myplotlabel,plotlabelcex=10,legposx=0.2,legposy=0.4,legcex=10)
+		#plotpopmatrix(mymatrix=mymat,exportname=paste("Popmatrix_Z",zscore,"withlegend",sep="_"),export=exporttype,addlegend=TRUE,legendtitle="proportion:",myBreaks=c(0,0.1,0.2,0.3,0.4,0.5,1),plotlabel=myplotlabel,plotlabelcex=10,legposx=0.4,legposy=0.4,legcex=10,addpoplegend=TRUE,poplegposx=0.2,poplegposy=0.75)
+		}
+	if(plotprop)
+		{
+		pairdf$pair	<- ifelse(pairdf$pop1<pairdf$pop2,paste(pairdf$pop1,pairdf$pop2,sep="_"),paste(pairdf$pop2,pairdf$pop1,sep="_"))
+		pairdf		<- pairdf[!duplicated(pairdf$pair),]
+		x1			<- data.frame("pop1"=mysambar$poporder,"popcol1"=mysambar$colorder)
+		pairdf2		<- merge(pairdf,x1,name="pop1")
+		x2			<- data.frame("pop2"=mysambar$poporder,"popcol2"=mysambar$colorder)
+		pairdf2		<- merge(pairdf2,x2,name="pop2")
+		pairdf2		<- pairdf2[order(pairdf2$prop),]
+		pairdf3		<- pairdf2[pairdf2$prop>0.1,]
+		plot(pairdf2$prop,pch=21,col=pairdf2$popcol1,bg=pairdf2$popcol2,cex=2,lwd=2)
+		plot(pairdf3$prop,pch=21,col=pairdf3$popcol1,bg=pairdf3$popcol2,cex=3,lwd=4)
+		}
+	}
+
+twisst_barplot<-function(p1=NULL,p2=NULL,p3=NULL,p4=NULL,doexport=TRUE,y_lim=c(0,0.6),legendpos="topright",mycex=2,ylabel="quartet frequency",usefullname=FALSE)
+	{
+	if(is.null(p1)|is.null(p2)|is.null(p3)|is.null(p4))
+		{
+		return(cat("ERROR: Define populations p1, p2, p3 and p4.",sep="\n"))
+		}
+	x		<- twisstdf
+	x		<- x[(x$ingroup1a==p1&x$ingroup1b==p2)|(x$ingroup1a==p2&x$ingroup1b==p1)|(x$ingroup2a==p1&x$ingroup2b==p2)|(x$ingroup2a==p2&x$ingroup2b==p1),]
+	x		<- x[(x$ingroup1a==p3&x$ingroup1b==p4)|(x$ingroup1a==p4&x$ingroup1b==p3)|(x$ingroup2a==p3&x$ingroup2b==p4)|(x$ingroup2a==p4&x$ingroup2b==p3),]
+	if(nrow(x)==0)
+		{
+		return(cat("ERROR: Quartet not found in species topology. Did you specify existing populations according to (p1,p2),(p3,p4)?",sep="\n"))
+		}
+	if(nrow(x)>1)
+		{
+		return(cat("ERROR: more than 1 row ??",sep="\n"))
+		}
+	mycounts	<- as.vector(unlist(x[,c("bbaa","abba","baba")]))
+	myfreqs		<- mycounts/sum(mycounts)
+	if(doexport){pdf(paste("Twisst.barplot",x$pop1[1],x$pop2[1],x$pop3[1],x$pop4[1],"pdf",sep="."),height=7.5,width=4.5)}
+	#barplot(myfreqs,names.arg=c("t1","t2","t3"),ylim=y_lim,las=1,col=c("darkorchid4","steelblue3","lightskyblue3"),border=c("darkorchid4","steelblue3","lightskyblue3"))
+	par(cex.axis=1.5)
+	barplot(myfreqs,names.arg=NULL,ylim=y_lim,las=1,col=c("darkorchid4","steelblue3","lightskyblue3"),border=c("darkorchid4","steelblue3","lightskyblue3"))
+	if(!is.null(ylabel)){mtext(ylabel,side=2,line=2.75,cex=mycex)}
+	myquartet	<- paste(x$pop1[1],",",x$pop2[1],"\n",x$pop3[1],",",x$pop4[1],sep="")
+	mtext(myquartet,side=3,line=0.5,cex=mycex)
+	mtext(paste("d = ",round(x$d[1],3),"; Z = ",round(x$Z[1],1),sep=""),side=1,line=1,cex=mycex)
+	if(usefullname)
+		{
+		t1		<- paste("(",x$ingroup1a[1],",",x$ingroup1b[1],"),(",x$ingroup2a[1],",",x$ingroup2b[1],")",sep="")
+		t2		<- paste("(",x$a1[1],",",x$a2[1],"),(",x$b1[1],",",x$b2[1],")",sep="")
+		t3		<- paste("(",x$c1[1],",",x$c2[1],"),(",x$d1[1],",",x$d2[1],")",sep="")
+		if(!is.null(legendpos)){legend(legendpos,legend=c(t1,t2,t3),cex=mycex,bty='n',fill=c("darkorchid4","steelblue3","lightskyblue3"))}
+		}else{
+		if(!is.null(legendpos)){legend(legendpos,legend=c(x$t_species2[1],x$t_gf2[1],x$t_third2[1]),cex=mycex,bty='n',fill=c("darkorchid4","steelblue3","lightskyblue3"))}
+		}
+	abline(h=1/3,col="grey50",lty=2,lwd=3)
+	if(doexport){dev.off()}
+	}
+
+twisst_simplex<-function(export=NULL,zthres=5,mycols=c("blue","red"),nmax=5000,t3model=TRUE,mycex=0.4,myalpha=30,do_mirror=TRUE)
+	{
+	if(is.null(myalpha))
+		{
+		mycols2		<- mycols
+		}else{
+		cat("Making colours transparent...",sep="\n")
+		mycols		<- col2rgb(mycols)
+		mycols2		<- c(rgb(mycols[1,1],mycols[2,1],mycols[3,1],max=255,alpha=20),rgb(mycols[1,2],mycols[2,2],mycols[3,2],max=255,alpha=myalpha))
+		}
+	myfilter	<- twisstdf$Z<zthres
+	if(t3model)
+		{
+		mydf1			<- twisstdf[myfilter,c("sum1","sum2","sum3")]
+		mydf2			<- twisstdf[!myfilter,c("sum1","sum2","sum3")]
+		}else{
+		#mydf			<- twisstdf[,c("baba","abba","bbaa")]
+		#simplexdf		<<- triangle.plot(mydf)
+		#cat("x and y-coordinates stored in simplexdf.",sep="\n")
+		#
+		mydf1			<- twisstdf[myfilter,c("baba","abba","bbaa")]
+		if(do_mirror)
+			{
+			cat("WARNING: for better visibility, flipping baba and abba for non-rejected.",sep="\n")
+			mydf2			<- twisstdf[!myfilter,c("abba","baba","bbaa")]
+			}else{
+			mydf2			<- twisstdf[!myfilter,c("baba","abba","bbaa")]
+			}
+		colnames(mydf1)	<- c("t3","t2","t1")
+		colnames(mydf2)	<- c("t3","t2","t1")
+		}
+	if(nrow(mydf1)>nmax)
+		{
+		cat("WARNING: downsampling...",sep="\n")
+		mydf1		<- mydf1[sample(c(1:nrow(mydf)),nmax,replace=FALSE),]
+		}
+	if(nrow(mydf2)>nmax)
+		{
+		cat("WARNING: downsampling...",sep="\n")
+		mydf2		<- mydf2[sample(c(1:nrow(mydf)),nmax,replace=FALSE),]
+		}
+	n1			<- nrow(mydf1)
+	n2			<- nrow(mydf2)
+	mydf		<- rbind(mydf1,mydf2)
+	if(!is.null(export))
+		{
+		mylabel		<- "T3_vs_geneflow"
+		mylabel2	<- ifelse(t3model,"t3","t1")
+		if(export=="eps"){postscript(paste("Twisst_triangle",mylabel,mylabel2,"eps",sep="."),width=10.5,height=10)}
+		if(export=="pdf"){pdf(paste("Twisst_triangle",mylabel,mylabel2,"pdf",sep="."),width=10.5,height=10)}
+		if(export=="png"){png(paste("Twisst_triangle",mylabel,mylabel2,"png",sep="."),width=750,height=720)}
+		if(export=="wmf"){win.metafile(paste("Twisst_triangle",mylabel,mylabel2,"wmf",sep="."),width=10.5,height=10)}
+		}
+	par(cex=3)
+	wtriangleplot 	<- triangle.plot(mydf,show.position=FALSE,scale=FALSE,cpoint=0,addaxes=FALSE,draw.line=TRUE,labeltriangle=TRUE)
+	colvec			<- c(rep(mycols2[1],n1),rep(mycols2[2],n2))
+	points(wtriangleplot,col=colvec,cex=mycex,pch=16)
+	if(!is.null(export)){dev.off()}
+	}
+
+
+twisst_simplex2<-function(export=NULL,zthres=5,mycols=c("black","red"),nmax=5000,t3model=TRUE,mycex=0.1)
+	{
+	for(k in c(1,2))
+		{
+		if(k==1)
+			{
+			myfilter	<- twisstdf$Z<zthres
+			}else{
+			myfilter	<- twisstdf$Z>=zthres
+			}
+		if(t3model)
+			{
+			mydf			<- twisstdf[myfilter,c("sum1","sum2","sum3")]
+			}else{
+			mydf			<- twisstdf[myfilter,c("baba","abba","bbaa")]
+			}
+		if(nrow(mydf)>nmax)
+			{
+			cat("WARNING: downsampling...",sep="\n")
+			mydf		<- mydf[sample(c(1:nrow(mydf)),nmax,replace=FALSE),]
+			}
+		if(!is.null(export))
+			{
+			mylabel		<- ifelse(k==1,"T3","geneflow")
+			mylabel2	<- ifelse(t3model,"t3","t1")
+			if(export=="eps"){postscript(paste("Twisst_triangle",mylabel,mylabel2,"eps",sep="."),width=10.5,height=10)}
+			if(export=="pdf"){pdf(paste("Twisst_triangle",mylabel,mylabel2,"pdf",sep="."),width=10.5,height=10)}
+			if(export=="png"){png(paste("Twisst_triangle",mylabel,mylabel2,"png",sep="."),width=750,height=720)}
+			if(export=="wmf"){win.metafile(paste("Twisst_triangle",mylabel,mylabel2,"wmf",sep="."),width=10.5,height=10)}
+			}
+		par(cex=5)
+		wtriangleplot 	<<- triangle.plot(mydf,show.position=FALSE,scale=FALSE,cpoint=0,addaxes=FALSE,draw.line=FALSE,labeltriangle=FALSE)
+		points(wtriangleplot,col=mycols[k],cex=mycex,pch=16)
+		if(!is.null(export)){dev.off()}
+		}
+	}
+
+twisst_heatmap_old<-function()
+	{
+	# POPULATION MATRIX:
+	mypops			<- unique(c(x$pop1,x$pop2,x$pop3,x$pop4))
+	npops			<- length(mypops)
+	for(dmin in c(0.1,0.11,0.12,0.13,0.14,0.15,0.16,0.17))
+		{
+		mymat			<- matrix(NA,nrow=npops,ncol=npops)
+		colnames(mymat)	<- mypops
+		rownames(mymat)	<- mypops
+		y				<- x[x$d>dmin&x$shape=="stair",]
+		#y				<- x[x$d>=dmin,]
+		for(i in c(1:npops))
+			{
+			mypop1		<- mypops[i]
+			for(j in c(1:npops))
+				{
+				mypop2		<- mypops[j]	
+				mymat[i,j]	<- nrow(y[(y$a1==mypop1&y$a2==mypop2)|(y$a1==mypop2&y$a2==mypop1)|(y$b1==mypop1&y$b2==mypop2)|(y$b1==mypop2&y$b2==mypop1),])
+				}
+			}
+		plotpopmatrix(mymatrix=mymat,exportname=paste("Popmatrix",dmin,sep="_"),export="pdf",addlegend=TRUE)
+		}
+	}
+	
+	
