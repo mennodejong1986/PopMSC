@@ -14,6 +14,8 @@ To understand the underlying reasoning, consider an ancestral population termed 
 
 This example illustrates why inferring the phylogeographic history from mtDNA, or any other single locus (e.g., Y-chromosomal data), can be misleading. If, instead, working with multiple unlinked loci, such as the autosomal dataset, the single-locus chance effects will cancel each other out. For some loci, populations will retain the same allele; for other loci, they will not. On balance, the proportions of shared alleles will accurately reflect the evolutionary relationships between populations. The law of large numbers tells us to rely on the autosomal and X-chromosomal data, and to be sceptical about discordant signals obtained from single-locus datasets (such as mtDNA and Y-chromosomal data).   
 
+
+
 ## The ‘short-sighted autosome’-hypothesis
 If we were to believe the ‘omniscient autosome’-hypothesis, the discordances between the single-locus and multi-locus datasets can be dismissed as single-locus stochastics. It implies that inferences from mtDNA and Y-chromosomal data are superfluous at best, and misleading at worst. Is this really the case? While random differential fixation of ancestral variation undoubtedly affects the distribution of mtDNA and Y-chromosomal haplotypes, the hypothesis does not preclude alternative mechanisms causing discordances. One indication that another mechanism must indeed be at play, are the observed inconsistencies between the autosomal and X-chromosomal data sets. As both are m ulti-locus datasets, single-locus stochastics are clearly not to blame. Which other factor, then, could possibly explain the observed discordances?    
 
