@@ -1,5 +1,5 @@
 # PopMSC
-Pipeline for multispecies coalescent (MSC) based analyses on populations, including haploblock detection, testing the equality of alternative quartet frequencies, and 'ingroup-score' calculation  
+Pipeline for multispecies coalescent (MSC) based analyses on populations, including haploblock detection, testing the equality of alternative quartet frequencies (using the D-statistic), and 'ingroup-score' calculation. This workflow may serve to detect ancestral population structure, as explained below.  
 
 ## Using the D-statistic to infer ancestral population structure
 
