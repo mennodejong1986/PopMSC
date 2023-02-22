@@ -3,7 +3,7 @@ Pipeline for multispecies coalescent (MSC) based analyses on populations, includ
 
 ## Using the D-statistic to infer ancestral population structure
 
-Since it’s introduction in 2011, the Four Taxon Test (also known as the D-statistic, ABBA-BABA test or f4-score) has become a standard genomics tool to detect gene flow. Here, I describe how to Four Taxon Test can alternatively also be used to reconstruct past population structure.      
+Since it’s introduction in 2011, the Four Taxon Test (also known as the D-statistic, ABBA-BABA test or f4-score) has become a standard genomics tool to detect gene flow. Here, I describe how the Four Taxon Test can alternatively also be used to reconstruct past population structure.      
 
 The procedure described here has been developed for better understanding of the mechanisms underlying single locus and multi-locus discordances, in particular those observed in brown bears (Ursus arctos). The procedure allows to test between two potential explanations of mitonuclear discordances. I will refer to these competing explanations as the ‘omniscient autosome’-hypothesis and the ‘short-sighted autosome’-hypothesis.  
 
